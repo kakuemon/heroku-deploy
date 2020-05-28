@@ -1,5 +1,6 @@
 const core = require("@actions/core");
 const { exec } = require("@actions/exec");
+const { execSync } = require("child_process");
 
 const execOptions = {
   cwd: process.env.GITHUB_WORKSPACE,
@@ -93,7 +94,7 @@ heroku.appdir = core.getInput("appdir");
       }
     }
 
-    await exec(createCatFile(heroku), { cwd: "/" });
+    execSync(createCatFile(heroku));
     console.log("Created and wrote to ~./netrc");
 
     await exec("heroku login", execOptions);
