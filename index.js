@@ -1,19 +1,23 @@
 const core = require("@actions/core");
 const { exec } = require("@actions/exec");
+const fs = require("fs");
+const util = require("util");
+
+const writeFile = util.promisify(fs.writeFile);
 
 const execOptions = {
   cwd: process.env.GITHUB_WORKSPACE,
 };
 
 // Support Functions
-const createCatFile = ({ email, api_key }) => `cat >~/.netrc <<EOF
+const createCatFile = ({ email, api_key }) => `
 machine api.heroku.com
     login ${email}
     password ${api_key}
 machine git.heroku.com
     login ${email}
     password ${api_key}
-EOF`;
+`;
 
 const deploy = async ({
   dontuseforce,
@@ -93,7 +97,7 @@ heroku.appdir = core.getInput("appdir");
       }
     }
 
-    await exec(createCatFile(heroku), execOptions);
+    await writeFile("/.netrc", createCatFile(heroku));
     console.log("Created and wrote to ~./netrc");
 
     await exec("heroku login", execOptions);
