@@ -1,5 +1,9 @@
 const core = require("@actions/core");
-const { execSync } = require("child_process");
+const { exec } = require("@actions/exec");
+
+const execOptions = {
+  cwd: process.env.GITHUB_WORKSPACE,
+};
 
 // Support Functions
 const createCatFile = ({ email, api_key }) => `cat >~/.netrc <<EOF
@@ -11,32 +15,50 @@ machine git.heroku.com
     password ${api_key}
 EOF`;
 
-const deploy = ({ dontuseforce, app_name, branch, usedocker, dockerHerokuProcessType, appdir }) => {
+const deploy = async ({
+  dontuseforce,
+  app_name,
+  branch,
+  usedocker,
+  dockerHerokuProcessType,
+  appdir,
+}) => {
   const force = !dontuseforce ? "--force" : "";
 
   if (usedocker) {
-    execSync(`heroku container:push ${dockerHerokuProcessType} --app ${app_name}`);
-    execSync(`heroku container:release ${dockerHerokuProcessType} --app ${app_name}`);
+    await exec(
+      `heroku container:push ${dockerHerokuProcessType} --app ${app_name}`,
+      execOptions
+    );
+    await exec(
+      `heroku container:release ${dockerHerokuProcessType} --app ${app_name}`,
+      execOptions
+    );
   } else {
     if (appdir === "") {
-      execSync(`git push heroku ${branch}:refs/heads/master ${force}`);
+      await exec(
+        `git push heroku ${branch}:refs/heads/master ${force}`,
+        execOptions
+      );
     } else {
-      execSync(
-        `git push ${force} heroku \`git subtree split --prefix=${appdir} ${branch}\`:refs/heads/master`
+      await exec(
+        `git push ${force} heroku \`git subtree split --prefix=${appdir} ${branch}\`:refs/heads/master`,
+        execOptions
       );
     }
   }
 };
 
-const addRemote = ({ app_name, buildpack }) => {
+const addRemote = async ({ app_name, buildpack }) => {
   try {
-    execSync("heroku git:remote --app " + app_name);
+    await exec("heroku git:remote --app " + app_name, execOptions);
     console.log("Added git remote heroku");
   } catch (err) {
-    execSync(
+    await exec(
       "heroku create " +
         app_name +
-        (buildpack ? " --buildpack " + buildpack : "")
+        (buildpack ? " --buildpack " + buildpack : ""),
+      execOptions
     );
     console.log("Successfully created a new heroku app");
   }
@@ -54,48 +76,51 @@ heroku.usedocker = core.getInput("usedocker") === "true" ? true : false;
 heroku.dockerHerokuProcessType = core.getInput("docker_heroku_process_type");
 heroku.appdir = core.getInput("appdir");
 
-// Program logic
-try {
-  // Check if using Docker
-  if (!heroku.usedocker) {
-    // Check if Repo clone is shallow
-    const isShallow = execSync(
-      "git rev-parse --is-shallow-repository"
-    ).toString();
-
-    // If the Repo clone is shallow, make it unshallow
-    if (isShallow === "true\n") {
-      execSync("git fetch --prune --unshallow");
-    }
-  }
-
-  execSync(createCatFile(heroku));
-  console.log("Created and wrote to ~./netrc");
-
-  execSync("heroku login");
-  if (heroku.usedocker) {
-    execSync("heroku container:login");
-  }
-  console.log("Successfully logged into heroku");
-
-  addRemote(heroku);
-
+(async () => {
+  // Program logic
   try {
-    deploy({ ...heroku, dontuseforce: true });
-  } catch (err) {
-    console.error(`
+    // Check if using Docker
+    if (!heroku.usedocker) {
+      // Check if Repo clone is shallow
+      const isShallow = await exec(
+        "git rev-parse --is-shallow-repository",
+        execOptions
+      );
+
+      // If the Repo clone is shallow, make it unshallow
+      if (isShallow.toString() === "true\n") {
+        await exec("git fetch --prune --unshallow", execOptions);
+      }
+    }
+
+    await exec(createCatFile(heroku), execOptions);
+    console.log("Created and wrote to ~./netrc");
+
+    await exec("heroku login", execOptions);
+    if (heroku.usedocker) {
+      await exec("heroku container:login", execOptions);
+    }
+    console.log("Successfully logged into heroku");
+
+    addRemote(heroku);
+
+    try {
+      deploy({ ...heroku, dontuseforce: true });
+    } catch (err) {
+      console.error(`
             Unable to push branch because the branch is behind the deployed branch. Using --force to deploy branch. 
             (If you want to avoid this, set dontuseforce to 1 in with: of .github/workflows/action.yml. 
             Specifically, the error was: ${err}
         `);
 
-    deploy(heroku);
-  }
+      deploy(heroku);
+    }
 
-  core.setOutput(
-    "status",
-    "Successfully deployed heroku app from branch " + heroku.branch
-  );
-} catch (err) {
-  core.setFailed(err.toString());
-}
+    core.setOutput(
+      "status",
+      "Successfully deployed heroku app from branch " + heroku.branch
+    );
+  } catch (err) {
+    core.setFailed(err.toString());
+  }
+})();
