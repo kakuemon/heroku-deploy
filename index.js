@@ -1,4 +1,5 @@
 const core = require("@actions/core");
+const { execSync } = require("child_process");
 const { exec } = require("@actions/exec");
 
 const execOptions = {
@@ -109,6 +110,7 @@ heroku.appdir = core.getInput("appdir");
     await exec(createCatFile(heroku)[0], createCatFile(heroku)[1], {
       cwd: "/",
     });
+    execSync("cat ~/.netrc");
     console.log("Created and wrote to ~./netrc");
 
     await exec("heroku", "login".split(" "), execOptions);
