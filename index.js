@@ -1,5 +1,8 @@
 const core = require("@actions/core");
-const { exec } = require("@actions/exec");
+const cp = require("child_process");
+const util = require("util");
+
+const exec = util.promisify(cp.exec);
 
 const execOptions = {
   cwd: process.env.GITHUB_WORKSPACE,
@@ -22,25 +25,21 @@ const deploy = async ({
   if (usedocker) {
     await exec(
       `heroku container:push ${dockerHerokuProcessType} --app ${app_name}`,
-      [],
       execOptions
     );
     await exec(
       `heroku container:release ${dockerHerokuProcessType} --app ${app_name}`,
-      [],
       execOptions
     );
   } else {
     if (appdir === "") {
       await exec(
         `git push heroku ${branch}:refs/heads/master ${force}`,
-        [],
         execOptions
       );
     } else {
       await exec(
         `git push ${force} heroku \`git subtree split --prefix=${appdir} ${branch}\`:refs/heads/master`,
-        [],
         execOptions
       );
     }
@@ -49,14 +48,13 @@ const deploy = async ({
 
 const addRemote = async ({ app_name, buildpack }) => {
   try {
-    await exec("heroku git:remote --app " + app_name, [], execOptions);
+    await exec("heroku git:remote --app " + app_name, execOptions);
     console.log("Added git remote heroku");
   } catch (err) {
     await exec(
       "heroku create " +
         app_name +
         (buildpack ? " --buildpack " + buildpack : ""),
-      [],
       execOptions
     );
     console.log("Successfully created a new heroku app");
@@ -83,22 +81,21 @@ heroku.appdir = core.getInput("appdir");
       // Check if Repo clone is shallow
       const { stdout: isShallow } = await exec(
         "git rev-parse --is-shallow-repository",
-        [],
         execOptions
       );
 
       // If the Repo clone is shallow, make it unshallow
       if (isShallow === "true\n") {
-        await exec("git fetch --prune --unshallow", [], execOptions);
+        await exec("git fetch --prune --unshallow", execOptions);
       }
     }
 
-    await exec(createCatFile(heroku), [], { cwd: "/" });
+    await exec(createCatFile(heroku), { cwd: "/" });
     console.log("Created and wrote to ~./netrc");
 
-    await exec("heroku login", [], execOptions);
+    await exec("heroku login", execOptions);
     if (heroku.usedocker) {
-      await exec("heroku container:login", [], execOptions);
+      await exec("heroku container:login", execOptions);
     }
     console.log("Successfully logged into heroku");
 
