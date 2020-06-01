@@ -21,43 +21,58 @@ const deploy = async ({
   dockerHerokuProcessType,
   appdir,
 }) => {
-  const force = !dontuseforce ? "--force" : "";
-
   if (usedocker) {
     await exec(
-      `heroku container:push ${dockerHerokuProcessType} --app ${app_name}`,
+      "heroku",
+      `container:push ${dockerHerokuProcessType} --app ${app_name}`.split(" "),
       execOptions
     );
     await exec(
-      `heroku container:release ${dockerHerokuProcessType} --app ${app_name}`,
+      "heroku",
+      `container:release ${dockerHerokuProcessType} --app ${app_name}`.split(
+        " "
+      ),
       execOptions
     );
   } else {
     if (appdir === "") {
-      await exec(
-        `git push heroku ${branch}:refs/heads/master ${force}`,
-        execOptions
-      );
+      const args = `push heroku ${branch}:refs/heads/master`.split(" ");
+      if (!dontuseforce) {
+        args.push("--force");
+      }
+
+      await exec("git", args, execOptions);
     } else {
-      await exec(
-        `git push ${force} heroku \`git subtree split --prefix=${appdir} ${branch}\`:refs/heads/master`,
-        execOptions
+      const args = ["push"];
+      if (!dontuseforce) {
+        args.push("--force");
+      }
+      args.push(
+        `heroku 'git subtree split --prefix=${appdir} ${branch}':refs/heads/master`.split(
+          " "
+        )
       );
+
+      await exec("git", args, execOptions);
     }
   }
 };
 
 const addRemote = async ({ app_name, buildpack }) => {
   try {
-    await exec("heroku git:remote --app " + app_name, execOptions);
-    console.log("Added git remote heroku");
-  } catch (err) {
     await exec(
-      "heroku create " +
-        app_name +
-        (buildpack ? " --buildpack " + buildpack : ""),
+      "heroku",
+      `git:remote --app ${app_name}`.split(" "),
       execOptions
     );
+    console.log("Added git remote heroku");
+  } catch (err) {
+    const args = `create ${app_name}`.split(" ");
+    if (buildpack) {
+      args.push(`--buildpack ${buildpack}`.split(" "));
+    }
+
+    await exec("heroku", args, execOptions);
     console.log("Successfully created a new heroku app");
   }
 };
@@ -87,7 +102,7 @@ heroku.appdir = core.getInput("appdir");
 
       // If the Repo clone is shallow, make it unshallow
       if (isShallow === "true\n") {
-        await exec("git fetch --prune --unshallow", execOptions);
+        await exec("git", "fetch --prune --unshallow".split(" "), execOptions);
       }
     }
 
@@ -96,9 +111,9 @@ heroku.appdir = core.getInput("appdir");
     });
     console.log("Created and wrote to ~./netrc");
 
-    await exec("heroku login", execOptions);
+    await exec("heroku", "login".split(" "), execOptions);
     if (heroku.usedocker) {
-      await exec("heroku container:login", execOptions);
+      await exec("heroku", "container:login".split(" "), execOptions);
     }
     console.log("Successfully logged into heroku");
 
