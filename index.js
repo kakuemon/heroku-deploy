@@ -1,20 +1,13 @@
 const core = require("@actions/core");
 const { exec } = require("@actions/exec");
-const { execSync } = require("child_process");
 
 const execOptions = {
   cwd: process.env.GITHUB_WORKSPACE,
 };
 
 // Support Functions
-const createCatFile = ({ email, api_key }) => `cat >.netrc <<EOF
-machine api.heroku.com
-    login ${email}
-    password ${api_key}
-machine git.heroku.com
-    login ${email}
-    password ${api_key}
-EOF`;
+const createCatFile = ({ email, api_key }) =>
+  `printf 'machine api.heroku.com\n\t\tlogin ${email}\n\t\tpassword ${api_key}\nmachine git.heroku.com\n\t\tlogin ${email}\n\t\tpassword ${api_key}' > .netrc`;
 
 const deploy = async ({
   dontuseforce,
@@ -83,18 +76,18 @@ heroku.appdir = core.getInput("appdir");
     // Check if using Docker
     if (!heroku.usedocker) {
       // Check if Repo clone is shallow
-      const isShallow = await exec(
+      const { stdout: isShallow } = await exec(
         "git rev-parse --is-shallow-repository",
         execOptions
       );
 
       // If the Repo clone is shallow, make it unshallow
-      if (isShallow.toString() === "true\n") {
+      if (isShallow === "true\n") {
         await exec("git fetch --prune --unshallow", execOptions);
       }
     }
 
-    execSync(createCatFile(heroku));
+    await exec(createCatFile(heroku), { cwd: "/" });
     console.log("Created and wrote to ~./netrc");
 
     await exec("heroku login", execOptions);
