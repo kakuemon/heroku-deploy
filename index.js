@@ -8,7 +8,7 @@ const execOptions = {
 // Support Functions
 const createCatFile = ({ email, api_key }) => [
   "printf",
-  `machine api.heroku.com\nlogin ${email}\npassword ${api_key}\nmachine git.heroku.com\nlogin ${email}\npassword ${api_key}' >> .netrc`.split(
+  `'machine api.heroku.com\nlogin ${email}\npassword ${api_key}\nmachine git.heroku.com\nlogin ${email}\npassword ${api_key}' >> .netrc`.split(
     " "
   ),
 ];
