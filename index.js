@@ -10,7 +10,7 @@ const execOptions = {
 
 // Support Functions
 const createCatFile = ({ email, api_key }) =>
-  `printf 'machine api.heroku.com\nlogin ${email}\npassword ${api_key}\nmachine git.heroku.com\nlogin ${email}\npassword ${api_key}' >> .netrc`;
+  `sudo printf 'machine api.heroku.com\nlogin ${email}\npassword ${api_key}\nmachine git.heroku.com\nlogin ${email}\npassword ${api_key}' >> .netrc`;
 
 const deploy = async ({
   dontuseforce,
